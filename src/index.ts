@@ -1,12 +1,14 @@
 import express from "express";
 import dotenv from "dotenv";
 
-import { connection } from "./queries";
+import { createTGCSConnection } from "./queries";
 
 dotenv.config();
-const app = express();
 
-const port = process.env.PORT || 3000;
+const connection = createTGCSConnection(process.env.HOST, Number(process.env.DB_PORT) || 3306, process.env.PASSWORD);
+
+const app = express();
+const serverPort = process.env.SERVER_PORT || 3000;
 
 app.get("/", async (req, res) => {
     const promise = new Promise(() => connection.ping((err) => {
@@ -19,8 +21,8 @@ app.get("/", async (req, res) => {
     await promise;
 
     res.send("Hello, World!");
-})
+});
 
-app.listen(port, () => {
-    console.log(`server started at http://localhost:${port}`);
-})
+app.listen(serverPort, () => {
+    console.log(`server started at http://localhost:${serverPort}`);
+});

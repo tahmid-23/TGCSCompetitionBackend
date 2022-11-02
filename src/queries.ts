@@ -1,8 +1,11 @@
 import mysql from "mysql2";
 
-export const connection = mysql.createConnection({
-    host: process.env.HOST,
-    user: 'tgcs',
-    password: process.env.PASSWORD,
-    database: 'tgcs_competition'
-})
+export function createTGCSConnection(host?: string, port?: number, password?: string) {
+    return mysql.createConnection({
+        host: host,
+        port: port,
+        user: 'tgcs',
+        password: password,
+        database: 'tgcs_competition'
+    });
+}
