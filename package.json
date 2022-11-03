@@ -1,33 +1,35 @@
 {
   "name": "tgcs-backend",
   "version": "0.1.0",
-  "description": "backend server for TGCS database.",
+  "description": "Backend server for TGCS database.",
   "private": true,
   "main": "src/index.ts",
+  "type": "module",
   "scripts": {
     "build": "npx tsc",
-    "dev": "ts-node-dev --respawn --transpile-only ./src/index.ts",
-    "prod": "tsc && node ./dist/index.js",
+    "dev": "nodemon ./src/index.ts",
+    "prod": "tsc && node ./dist/index.js"
   },
   "contributors": [
     "tahmid-23",
     "tigritik"
   ],
   "dependencies": {
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2",
-    "mysql2": "^2.3.3",
-    "ts-node-dev": "^2.0.0"
-  },
-  "devDependencies": {
     "@types/express": "^4.17.14",
     "@types/node": "^18.11.6",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "mysql2": "^2.3.3"
+  },
+  "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.41.0",
     "@typescript-eslint/parser": "^5.41.0",
     "eslint": "^8.26.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
+    "nodemon": "^2.0.20",
     "prettier": "^2.7.1",
+    "ts-node": "^10.9.1",
     "typescript": "^4.8.4"
   }
 }

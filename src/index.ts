@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 
-import { createTGCSConnection } from './queries';
+import { createTGCSConnection } from './queries.js';
 
 dotenv.config();
 
