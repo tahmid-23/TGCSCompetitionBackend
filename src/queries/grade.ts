@@ -11,12 +11,12 @@ export async function queryAllGrades(
 
   const gradeRanges: Record<number, string[]> = {};
   for (const row of rows) {
-    const experience_id = row['experience_id'];
-    const gradeRange = gradeRanges[experience_id];
+    const experienceId = row['experience_id'];
+    const gradeRange = gradeRanges[experienceId];
     if (gradeRange) {
       gradeRange.push(row['grade']);
     } else {
-      gradeRanges[experience_id] = [row['grade']];
+      gradeRanges[experienceId] = [row['grade']];
     }
   }
 

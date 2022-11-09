@@ -1,11 +1,12 @@
-import mysql, { Connection } from 'mysql2/promise';
+import mysql, { Pool } from 'mysql2/promise';
 
-export function createTGCSConnection(
+export function createTGCSPool(
   host?: string,
   port?: number,
   password?: string
-): Promise<Connection> {
-  return mysql.createConnection({
+): Pool {
+  return mysql.createPool({
+    connectionLimit: 10,
     host: host,
     port: port,
     user: 'tgcs',
