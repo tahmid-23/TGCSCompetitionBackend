@@ -1,12 +1,15 @@
 import { Connection } from 'mysql2/promise';
-import { queryAllCompetitionCategories } from './competition-category.js';
-import { genericQuery } from './utils/generic-query.js';
+import { queryAllAwards } from './award.js';
+import { genericQuery } from './utils/generic-queries.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
 
-const competitionFields = ['judges_description', 'judging_criteria'];
+const competitionFields = [
+  'competition_id',
+  'judges_description',
+  'judging_criteria'
+];
 const competitionColumnNames = createCommaSeparatedColumns(
   'competition',
-  'competition_id',
   competitionFields
 );
 
@@ -19,20 +22,19 @@ export async function queryAllCompetitions(
     'competition_id',
     competitionFields
   );
-  const competitionCategoriesPromise =
-    queryAllCompetitionCategories(connection);
+  const awardsPromise = queryAllAwards(connection);
 
-  const [competitions, competitionCategories] = await Promise.all([
+  const [competitions, awards] = await Promise.all([
     competitionsPromise,
-    competitionCategoriesPromise
+    awardsPromise
   ]);
 
   for (const competitionId in competitions) {
-    const queryCategories = competitionCategories[competitionId];
-    if (queryCategories) {
-      competitions[competitionId]['categories'] = [...queryCategories];
+    const queryAwards = awards[competitionId];
+    if (queryAwards) {
+      competitions[competitionId]['awards'] = queryAwards;
     } else {
-      competitions[competitionId]['categories'] = [];
+      competitions[competitionId]['awards'] = [];
     }
   }
 

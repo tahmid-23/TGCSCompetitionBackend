@@ -1,12 +1,16 @@
 import { Connection } from 'mysql2/promise';
-import { queryAllProgramCategories } from './program-category.js';
-import { genericQuery } from './utils/generic-query.js';
+import { queryAllProgramFocuses } from './program-focus.js';
+import { genericQuery } from './utils/generic-queries.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
 
-const programFields = ['type', 'monthly_fee', 'time_commitment'];
+const programFields = [
+  'program_id',
+  'program_type',
+  'monthly_fee',
+  'time_commitment'
+];
 const programColumnNames = createCommaSeparatedColumns(
   'program',
-  'program_id',
   programFields
 );
 
@@ -19,19 +23,19 @@ export async function queryAllPrograms(
     'program_id',
     programFields
   );
-  const programCategoriesPromise = queryAllProgramCategories(connection);
+  const programFocusesPromise = queryAllProgramFocuses(connection);
 
-  const [programs, programCategories] = await Promise.all([
+  const [programs, programFocuses] = await Promise.all([
     programsPromise,
-    programCategoriesPromise
+    programFocusesPromise
   ]);
 
   for (const programId in programs) {
-    const queryPrograms = programCategories[programId];
-    if (queryPrograms) {
-      programs[programId]['categories'] = [...queryPrograms];
+    const queryFocuses = programFocuses[programId];
+    if (queryFocuses) {
+      programs[programId]['program_focuses'] = queryFocuses;
     } else {
-      programs[programId]['categories'] = [];
+      programs[programId]['program_focuses'] = [];
     }
   }
 

@@ -4,13 +4,9 @@ function tableColumnName(table: string, column: string): string {
 
 export function createCommaSeparatedColumns(
   tableName: string,
-  tableId: string,
   columns: string[]
 ): string {
-  let columnString = tableColumnName(tableName, tableId);
-  if (columns.length) {
-    columnString += ', ';
-  }
+  let columnString = '';
 
   for (let i = 0; i < columns.length - 1; ++i) {
     columnString += tableColumnName(tableName, `${columns[i]}, `);

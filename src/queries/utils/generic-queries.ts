@@ -12,7 +12,9 @@ export async function genericQuery(
   for (const row of rows) {
     const record: Record<string, object> = {};
     for (const field of fields) {
-      record[field] = row[field];
+      if (field !== tableId) {
+        record[field] = row[field];
+      }
     }
 
     records[row[tableId]] = record;
@@ -33,7 +35,9 @@ export async function genericMultiQuery(
   for (const row of rows) {
     const record: Record<string, object> = {};
     for (const field of fields) {
-      record[field] = row[field];
+      if (field !== tableId) {
+        record[field] = row[field];
+      }
     }
 
     const existingRecords = records[row[tableId]];

@@ -1,10 +1,15 @@
 import { Connection, RowDataPacket } from 'mysql2/promise';
 import { queryAllCompetitions } from './competition.js';
-import { queryAllGrades } from './grade.js';
+import { queryAllExperienceCategories } from './experience-category.js';
+import { queryAllExperiencePrerequisites } from './experience-prerequisite.js';
+import { queryAllExperienceSponsors } from './experience-sponsor.js';
+import { queryAllGrades } from './experience-grade.js';
+import { queryAllImportantDates } from './important-date.js';
 import { queryAllPrograms } from './program.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
 
 const experienceFields = [
+  'experience_id',
   'website_url',
   'entry_fee',
   'participant_count',
@@ -27,10 +32,8 @@ const experienceFields = [
   'prerequisite_description',
   'entry_description'
 ];
-
 const experienceColumnNames = createCommaSeparatedColumns(
   'experience',
-  'experience_id',
   experienceFields
 );
 
@@ -38,14 +41,32 @@ export async function queryAllExperiences(
   connection: Connection
 ): Promise<Record<string, object>[]> {
   const gradesPromise = queryAllGrades(connection);
+  const experienceCategoriesPromise = queryAllExperienceCategories(connection);
+  const importantDatesPromise = queryAllImportantDates(connection);
+  const experienceSponsorsPromise = queryAllExperienceSponsors(connection);
+  const experiencePrerequisitesPromise =
+    queryAllExperiencePrerequisites(connection);
   const competitionsPromise = queryAllCompetitions(connection);
   const programsPromise = queryAllPrograms(connection);
   const experiencesPromise = connection.query<RowDataPacket[]>(
     `SELECT ${experienceColumnNames} FROM experience`
   );
 
-  const [grades, competitions, programs, [experienceRows]] = await Promise.all([
+  const [
+    grades,
+    experienceCategories,
+    importantDates,
+    experienceSponsors,
+    experiencePrerequisites,
+    competitions,
+    programs,
+    [experienceRows]
+  ] = await Promise.all([
     gradesPromise,
+    experienceCategoriesPromise,
+    importantDatesPromise,
+    experienceSponsorsPromise,
+    experiencePrerequisitesPromise,
     competitionsPromise,
     programsPromise,
     experiencesPromise
@@ -54,7 +75,9 @@ export async function queryAllExperiences(
   const experiences: Record<string, object>[] = [];
   for (const row of experienceRows) {
     const experienceId = row['experience_id'];
-    const experienceRecord: Record<string, object> = {};
+    const experienceRecord: Record<string, object> = {
+      experience_id: experienceId
+    };
     for (const field of experienceFields) {
       experienceRecord[field] = row[field];
     }
@@ -62,7 +85,48 @@ export async function queryAllExperiences(
     const experienceGrades = grades[experienceId];
     if (experienceGrades) {
       experienceRecord['grades'] = experienceGrades;
+    } else {
+      experienceRecord['grades'] = [];
     }
+
+    const categories = experienceCategories[experienceId];
+    if (categories) {
+      experienceRecord['categories'] = categories;
+    } else {
+      experienceRecord['categories'] = [];
+    }
+
+    const experienceImportantDates = importantDates[experienceId];
+    if (experienceImportantDates) {
+      experienceRecord['important_dates'] = experienceImportantDates;
+    } else {
+      experienceRecord['important_dates'] = [];
+    }
+
+    const sponsors = experienceSponsors[experienceId];
+    const mappedSponsors = [];
+    if (sponsors) {
+      for (const sponsor of sponsors) {
+        const sponsorId = sponsor['sponsor_id'];
+        if (sponsorId) {
+          mappedSponsors.push(sponsorId);
+        }
+      }
+    }
+    experienceRecord['sponsors'] = mappedSponsors;
+
+    const prerequisites = experiencePrerequisites[experienceId];
+    const mappedPrerequisites = [];
+    if (prerequisites) {
+      for (const prerequisite of prerequisites) {
+        const prerequisiteExperienceId =
+          prerequisite['prerequisite_experience_id'];
+        if (prerequisiteExperienceId) {
+          mappedPrerequisites.push(prerequisiteExperienceId);
+        }
+      }
+    }
+    experienceRecord['prerequisites'] = mappedPrerequisites;
 
     switch (row['type']) {
       case 'COMPETITION': {
