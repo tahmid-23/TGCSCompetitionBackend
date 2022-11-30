@@ -65,31 +65,19 @@ app.post('/insert', async (req: CustomRequest<InsertData>, res) => {
 
 export interface UpdateData {
   tableName: string;
-  tableId: string;
   rowId: number;
   data: Record<string, object>;
 }
 
 app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
-  if (
-    !req.body.tableName ||
-    !req.body.tableId ||
-    !req.body.rowId ||
-    !req.body.data
-  ) {
+  if (!req.body.tableName || !req.body.rowId || !req.body.data) {
     return;
   }
 
   const connection = await pool.getConnection();
   await connection.beginTransaction();
 
-  update(
-    connection,
-    req.body.tableName,
-    req.body.tableId,
-    req.body.rowId,
-    req.body.data
-  );
+  update(connection, req.body.tableName, req.body.rowId, req.body.data);
 
   connection.commit();
 
@@ -98,19 +86,18 @@ app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
 
 export interface RemoveData {
   tableName: string;
-  tableId: string;
   rowId: number;
 }
 
 app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
-  if (!req.body.tableName || !req.body.tableId || !req.body.rowId) {
+  if (!req.body.tableName || !req.body.rowId) {
     return;
   }
 
   const connection = await pool.getConnection();
   await connection.beginTransaction();
 
-  remove(connection, req.body.tableName, req.body.tableId, req.body.rowId);
+  remove(connection, req.body.tableName, req.body.rowId);
 
   connection.commit();
 

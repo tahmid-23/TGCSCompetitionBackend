@@ -40,11 +40,29 @@ function createEqualsSeparatedUpdateColumns(columns: string[]): string {
   return columnString;
 }
 
+const tableNameToId: Record<string, string> = {
+  award: 'competition_id',
+  competition: 'competition_id',
+  experience: 'experience_id',
+  experience_category: 'experience_id',
+  experience_grade: 'experience_id',
+  experience_prerequisite: 'experience_id',
+  experience_sponsor: 'experience_id',
+  important_date: 'experience_id',
+  program: 'program_id',
+  program_focus: 'program_id',
+  sponsor: 'sponsor_id'
+};
+
 export function insert(
   connection: Connection,
   tableName: string,
   data: Record<string, object>
 ) {
+  if (!tableNameToId[tableName.toLowerCase()]) {
+    return;
+  }
+
   const dataValues = Object.values(data);
 
   connection.query(
@@ -58,10 +76,14 @@ export function insert(
 export function update(
   connection: Connection,
   tableName: string,
-  tableId: string,
   rowId: number,
   data: Record<string, object>
 ) {
+  const tableId = tableNameToId[tableName];
+  if (!tableId) {
+    return;
+  }
+
   connection.query(
     `UPDATE \`${tableName}\`` +
       `SET ${createEqualsSeparatedUpdateColumns(Object.keys(data))}` +
@@ -73,9 +95,13 @@ export function update(
 export function remove(
   connection: Connection,
   tableName: string,
-  tableId: string,
   rowId: number
 ) {
+  const tableId = tableNameToId[tableName];
+  if (!tableId) {
+    return;
+  }
+
   connection.query(`DELETE FROM \`${tableName}\` WHERE \`${tableId}\` = ?`, [
     rowId
   ]);
