@@ -1,4 +1,4 @@
-import { Connection } from 'mysql2/promise';
+import { Connection, ResultSetHeader } from 'mysql2/promise';
 
 function createInsertColumns(columns: string[]): string {
   let columnsString = '';
@@ -54,26 +54,29 @@ const tableNameToId: Record<string, string> = {
   sponsor: 'sponsor_id'
 };
 
-export function insert(
+export async function insert(
   connection: Connection,
   tableName: string,
   data: Record<string, object>
-) {
-  if (!tableNameToId[tableName.toLowerCase()]) {
-    return;
+): Promise<number> {
+  const tableId = tableNameToId[tableName];
+  if (!tableId) {
+    throw new Error(`Unknown table name ${tableName}`);
   }
 
   const dataValues = Object.values(data);
 
-  connection.query(
+  const [result] = await connection.query<ResultSetHeader>(
     `INSERT INTO \`${tableName}\` (${createInsertColumns(
       Object.keys(data)
     )}) VALUES(${createCommaSeparatedQuestionMarks(dataValues.length)})`,
     [...dataValues]
   );
+
+  return result.insertId;
 }
 
-export function update(
+export async function update(
   connection: Connection,
   tableName: string,
   rowId: number,
@@ -81,10 +84,10 @@ export function update(
 ) {
   const tableId = tableNameToId[tableName];
   if (!tableId) {
-    return;
+    throw new Error(`Unknown table name ${tableName}`);
   }
 
-  connection.query(
+  await connection.query(
     `UPDATE \`${tableName}\`` +
       `SET ${createEqualsSeparatedUpdateColumns(Object.keys(data))}` +
       `WHERE \`${tableId}\` = ?`,
@@ -92,17 +95,18 @@ export function update(
   );
 }
 
-export function remove(
+export async function remove(
   connection: Connection,
   tableName: string,
   rowId: number
 ) {
   const tableId = tableNameToId[tableName];
   if (!tableId) {
-    return;
+    throw new Error(`Unknown table name ${tableName}`);
   }
 
-  connection.query(`DELETE FROM \`${tableName}\` WHERE \`${tableId}\` = ?`, [
-    rowId
-  ]);
+  await connection.query(
+    `DELETE FROM \`${tableName}\` WHERE \`${tableId}\` = ?`,
+    [rowId]
+  );
 }

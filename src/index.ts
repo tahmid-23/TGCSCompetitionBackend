@@ -100,11 +100,11 @@ app.post('/insert', async (req: CustomRequest<InsertData>, res) => {
   try {
     await connection.beginTransaction();
 
-    insert(connection, req.body.tableName, req.body.data);
+    const rowId = await insert(connection, req.body.tableName, req.body.data);
 
     connection.commit();
 
-    res.sendStatus(200);
+    res.json(rowId);
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
@@ -135,7 +135,7 @@ app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
   try {
     await connection.beginTransaction();
 
-    update(connection, req.body.tableName, req.body.rowId, req.body.data);
+    await update(connection, req.body.tableName, req.body.rowId, req.body.data);
 
     connection.commit();
 
@@ -169,7 +169,7 @@ app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
   try {
     await connection.beginTransaction();
 
-    remove(connection, req.body.tableName, req.body.rowId);
+    await remove(connection, req.body.tableName, req.body.rowId);
 
     connection.commit();
 
