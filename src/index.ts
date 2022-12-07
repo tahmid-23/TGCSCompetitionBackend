@@ -35,15 +35,42 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 app.get('/experiences', async (_req, res) => {
-  const connection = await pool.getConnection();
-  const experiences = await queryAllExperiences(connection);
-  res.json(experiences);
+  let connection;
+  try {
+    connection = await pool.getConnection();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
+
+  try {
+    const experiences = await queryAllExperiences(connection);
+    res.json(experiences);
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(400);
+  }
 });
 
 app.get('/sponsors', async (_req, res) => {
-  const connection = await pool.getConnection();
-  const sponsors = await queryAllSponsors(connection);
-  res.json(sponsors);
+  let connection;
+  try {
+    connection = await pool.getConnection();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
+
+  try {
+    const sponsors = await queryAllSponsors(connection);
+
+    res.json(sponsors);
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(400);
+  }
 });
 
 export interface CustomRequest<T> extends Express.Request {
@@ -57,17 +84,31 @@ export interface InsertData {
 
 app.post('/insert', async (req: CustomRequest<InsertData>, res) => {
   if (!req.body.tableName || !req.body.data) {
+    res.sendStatus(400);
     return;
   }
 
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
+  let connection;
+  try {
+    connection = await pool.getConnection();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
 
-  insert(connection, req.body.tableName, req.body.data);
+  try {
+    await connection.beginTransaction();
 
-  connection.commit();
+    insert(connection, req.body.tableName, req.body.data);
 
-  res.sendStatus(200);
+    connection.commit();
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(400);
+  }
 });
 
 export interface UpdateData {
@@ -78,17 +119,31 @@ export interface UpdateData {
 
 app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
   if (!req.body.tableName || !req.body.rowId || !req.body.data) {
+    res.sendStatus(400);
     return;
   }
 
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
+  let connection;
+  try {
+    connection = await pool.getConnection();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
 
-  update(connection, req.body.tableName, req.body.rowId, req.body.data);
+  try {
+    await connection.beginTransaction();
 
-  connection.commit();
+    update(connection, req.body.tableName, req.body.rowId, req.body.data);
 
-  res.sendStatus(200);
+    connection.commit();
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(400);
+  }
 });
 
 export interface RemoveData {
@@ -98,17 +153,31 @@ export interface RemoveData {
 
 app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
   if (!req.body.tableName || !req.body.rowId) {
+    res.sendStatus(400);
     return;
   }
 
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
+  let connection;
+  try {
+    connection = await pool.getConnection();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
 
-  remove(connection, req.body.tableName, req.body.rowId);
+  try {
+    await connection.beginTransaction();
 
-  connection.commit();
+    remove(connection, req.body.tableName, req.body.rowId);
 
-  res.sendStatus(200);
+    connection.commit();
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error(err);
+    res.sendStatus(400);
+  }
 });
 
 app.listen(serverPort, '0.0.0.0');
