@@ -1,6 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
-import express from 'express';
+import express, { Response } from 'express';
+import { PoolConnection } from 'mysql2/promise.js';
 
 import { createTGCSPool } from './connection.js';
 import { queryAllExperiences } from './queries/experience.js';
@@ -34,46 +35,44 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.get('/experiences', async (_req, res) => {
+async function execute<
+  ResBody = unknown,
+  Locals extends Record<string, unknown> = Record<string, unknown>
+>(
+  res: Response<ResBody, Locals>,
+  callback: (connection: PoolConnection) => void
+) {
   let connection;
   try {
     connection = await pool.getConnection();
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.sendStatus(500);
     return;
   }
 
   try {
-    const experiences = await queryAllExperiences(connection);
-    res.json(experiences);
+    callback(connection);
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
   } finally {
     connection.release();
   }
+}
+
+app.get('/experiences', async (_req, res) => {
+  await execute(res, async (connection) => {
+    const experiences = await queryAllExperiences(connection);
+    res.json(experiences);
+  });
 });
 
 app.get('/sponsors', async (_req, res) => {
-  let connection;
-  try {
-    connection = await pool.getConnection();
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(500);
-    return;
-  }
-
-  try {
+  await execute(res, async (connection) => {
     const sponsors = await queryAllSponsors(connection);
     res.json(sponsors);
-  } catch (err) {
-    console.error(err);
-    res.sendStatus(400);
-  } finally {
-    connection.release();
-  }
+  });
 });
 
 export interface CustomRequest<T> extends Express.Request {
@@ -91,27 +90,13 @@ app.post('/insert', async (req: CustomRequest<InsertData>, res) => {
     return;
   }
 
-  let connection;
-  try {
-    connection = await pool.getConnection();
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(500);
-    return;
-  }
-
-  try {
+  await execute(res, async (connection) => {
     await connection.beginTransaction();
     const rowId = await insert(connection, req.body.tableName, req.body.data);
     await connection.commit();
 
     res.json(rowId);
-  } catch (err) {
-    console.error(err);
-    res.sendStatus(400);
-  } finally {
-    connection.release();
-  }
+  });
 });
 
 export interface UpdateData {
@@ -126,27 +111,13 @@ app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
     return;
   }
 
-  let connection;
-  try {
-    connection = await pool.getConnection();
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(500);
-    return;
-  }
-
-  try {
+  await execute(res, async (connection) => {
     await connection.beginTransaction();
     await update(connection, req.body.tableName, req.body.rowId, req.body.data);
     await connection.commit();
 
     res.sendStatus(200);
-  } catch (err) {
-    console.error(err);
-    res.sendStatus(400);
-  } finally {
-    connection.release();
-  }
+  });
 });
 
 export interface RemoveData {
@@ -160,27 +131,13 @@ app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
     return;
   }
 
-  let connection;
-  try {
-    connection = await pool.getConnection();
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(500);
-    return;
-  }
-
-  try {
+  await execute(res, async (connection) => {
     await connection.beginTransaction();
     await remove(connection, req.body.tableName, req.body.rowId);
     await connection.commit();
 
     res.sendStatus(200);
-  } catch (err) {
-    console.error(err);
-    res.sendStatus(400);
-  } finally {
-    connection.release();
-  }
+  });
 });
 
 app.listen(serverPort, '0.0.0.0');
