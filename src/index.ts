@@ -50,6 +50,8 @@ app.get('/experiences', async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
+  } finally {
+    connection.release();
   }
 });
 
@@ -69,6 +71,8 @@ app.get('/sponsors', async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
+  } finally {
+    connection.release();
   }
 });
 
@@ -105,6 +109,8 @@ app.post('/insert', async (req: CustomRequest<InsertData>, res) => {
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
+  } finally {
+    connection.release();
   }
 });
 
@@ -138,6 +144,8 @@ app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
+  } finally {
+    connection.release();
   }
 });
 
@@ -170,6 +178,8 @@ app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
+  } finally {
+    connection.release();
   }
 });
 
