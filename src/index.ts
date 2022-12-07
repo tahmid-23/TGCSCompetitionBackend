@@ -65,7 +65,6 @@ app.get('/sponsors', async (_req, res) => {
 
   try {
     const sponsors = await queryAllSponsors(connection);
-
     res.json(sponsors);
   } catch (err) {
     console.error(err);
@@ -99,10 +98,8 @@ app.post('/insert', async (req: CustomRequest<InsertData>, res) => {
 
   try {
     await connection.beginTransaction();
-
     const rowId = await insert(connection, req.body.tableName, req.body.data);
-
-    connection.commit();
+    await connection.commit();
 
     res.json(rowId);
   } catch (err) {
@@ -134,10 +131,8 @@ app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
 
   try {
     await connection.beginTransaction();
-
     await update(connection, req.body.tableName, req.body.rowId, req.body.data);
-
-    connection.commit();
+    await connection.commit();
 
     res.sendStatus(200);
   } catch (err) {
@@ -168,10 +163,8 @@ app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
 
   try {
     await connection.beginTransaction();
-
     await remove(connection, req.body.tableName, req.body.rowId);
-
-    connection.commit();
+    await connection.commit();
 
     res.sendStatus(200);
   } catch (err) {
