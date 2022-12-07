@@ -16,11 +16,18 @@ const pool = createTGCSPool(
 );
 
 const app = express();
-const serverPort = process.env.SERVER_PORT || 3000;
+const serverPort = Number(process.env.SERVER_PORT) || 3000;
 
 app.use(
-  cors({
-    origin: ['http://192.168.1.9:3000']
+  cors((req, callback) => {
+    let corsOptions;
+    if (req.ip.startsWith('192.168') || req.ip === '127.0.0.1') {
+      corsOptions = { origin: true };
+    } else {
+      corsOptions = { origin: false };
+    }
+
+    callback(null, corsOptions);
   })
 );
 
@@ -104,4 +111,4 @@ app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
   res.sendStatus(200);
 });
 
-app.listen(serverPort);
+app.listen(serverPort, '0.0.0.0');
