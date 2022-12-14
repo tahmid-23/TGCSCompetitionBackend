@@ -28,7 +28,6 @@ const experienceFields = [
   'address',
   'start_date',
   'end_date',
-  'application_due_date',
   'prerequisite_description',
   'entry_description'
 ];

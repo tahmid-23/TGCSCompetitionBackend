@@ -48,6 +48,7 @@ const tableNameToId: Record<string, string> = {
   experience_grade: 'experience_id',
   experience_prerequisite: 'experience_id',
   experience_sponsor: 'experience_id',
+  feedback: 'feedback',
   important_date: 'experience_id',
   program: 'program_id',
   program_focus: 'program_id',

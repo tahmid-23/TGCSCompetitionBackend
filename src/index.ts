@@ -5,6 +5,7 @@ import { PoolConnection } from 'mysql2/promise.js';
 
 import { createTGCSPool } from './connection.js';
 import { queryAllExperiences } from './queries/experience.js';
+import { queryAllFeedbackIds } from './queries/feedback.js';
 import { queryAllSponsors } from './queries/sponsor.js';
 import { insert, remove, update } from './queries/update.js';
 
@@ -36,13 +37,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 async function execute<
+  T,
   ResBody = unknown,
   Locals extends Record<string, unknown> = Record<string, unknown>
 >(
   res: Response<ResBody, Locals>,
-  callback: (connection: PoolConnection) => void
+  callback: (connection: PoolConnection) => Promise<T> | T
 ) {
-  let connection;
+  let connection: PoolConnection;
   try {
     connection = await pool.getConnection();
   } catch (err) {
@@ -52,7 +54,7 @@ async function execute<
   }
 
   try {
-    callback(connection);
+    return await callback(connection);
   } catch (err) {
     console.error(err);
     res.sendStatus(400);
@@ -72,6 +74,13 @@ app.get('/sponsors', async (_req, res) => {
   await execute(res, async (connection) => {
     const sponsors = await queryAllSponsors(connection);
     res.json(sponsors);
+  });
+});
+
+app.get('/feedback', async (_req, res) => {
+  await execute(res, async (connection) => {
+    const feedbackIds = await queryAllFeedbackIds(connection);
+    res.json(feedbackIds);
   });
 });
 
