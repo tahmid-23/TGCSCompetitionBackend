@@ -149,4 +149,6 @@ app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
   });
 });
 
-app.listen(serverPort, '0.0.0.0');
+app.listen(serverPort, '0.0.0.0', () => {
+  console.log('Backend server started.');
+});
