@@ -8,7 +8,6 @@ const programFields = [
   'program_type',
   'monthly_fee',
   'time_commitment',
-  'application_due_date'
 ];
 const programColumnNames = createCommaSeparatedColumns(
   'program',

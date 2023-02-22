@@ -26,8 +26,6 @@ const experienceFields = [
   'type',
   'virtual',
   'address',
-  'start_date',
-  'end_date',
   'prerequisite_description',
   'entry_description'
 ];
