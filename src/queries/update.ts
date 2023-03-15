@@ -1,4 +1,4 @@
-import { Connection, ResultSetHeader } from 'mysql2/promise';
+import { Connection, ResultSetHeader } from 'mysql2/promise.js';
 
 function createInsertColumns(columns: string[]): string {
   let columnsString = '';
@@ -110,4 +110,13 @@ export async function remove(
     `DELETE FROM \`${tableName}\` WHERE \`${tableId}\` = ?`,
     [rowId]
   );
+}
+
+export async function addScraper(connection: Connection, experienceId: number, root: string | undefined, path: number[]) {
+  const [result] = await connection.query<ResultSetHeader>(`INSERT INTO \`scraper\` (\`experience_id\`, \`root\`) VALUES (?, ?)`, [experienceId, root]);
+  
+  const insertId = result.insertId;
+  for (let i = 0; i < path.length; ++i) {
+    await connection.query(`INSERT INTO \`scraper_path\` (\`scraper_id\`, \`order\`, \`value\`) VALUES (?, ?, ?)`, [insertId, i, path[i]]);
+  }
 }
