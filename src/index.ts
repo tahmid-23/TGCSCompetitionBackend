@@ -1,4 +1,4 @@
-import tf, { mod } from '@tensorflow/tfjs-node';
+import tf from '@tensorflow/tfjs-node';
 import { loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -8,11 +8,10 @@ import fetch from 'node-fetch';
 import { HTMLElement, NodeType, parse } from 'node-html-parser';
 
 import { createTGCSPool } from './connection.js';
-import { queryAllExperiences } from './queries/experience.js';
+import { queryAllExperiences, queryExperience } from './queries/experience.js';
 import { queryAllFeedbackIds } from './queries/feedback.js';
 import { queryAllSponsors } from './queries/sponsor.js';
 import { addScraper, insert, remove, update } from './queries/update.js';
-
 
 dotenv.config();
 
@@ -72,6 +71,16 @@ app.get('/experiences', async (_req, res) => {
   await execute(res, async (connection) => {
     const experiences = await queryAllExperiences(connection);
     res.json(experiences);
+  });
+});
+
+app.get('/experience/:experienceId', async (req, res) => {
+  await execute(res, async (connection) => {
+    const experience = await queryExperience(
+      connection,
+      Number(req.params.experienceId)
+    );
+    res.json(experience);
   });
 });
 
@@ -136,18 +145,24 @@ app.post('/update', async (req: CustomRequest<UpdateData>, res) => {
 
 export interface RemoveData {
   tableName: string;
+  rowName: string;
   rowId: number;
 }
 
 app.post('/remove', async (req: CustomRequest<RemoveData>, res) => {
-  if (!req.body.tableName || !req.body.rowId) {
+  if (!req.body.tableName || !req.body.rowName || !req.body.rowId) {
     res.sendStatus(400);
     return;
   }
 
   await execute(res, async (connection) => {
     await connection.beginTransaction();
-    await remove(connection, req.body.tableName, req.body.rowId);
+    await remove(
+      connection,
+      req.body.tableName,
+      req.body.rowName,
+      req.body.rowId
+    );
     await connection.commit();
 
     res.sendStatus(200);
@@ -168,7 +183,7 @@ app.post('/scraper', async (req: CustomRequest<ScraperData>, res) => {
 
   const updateHtmlResponse = await fetch(req.body.updateUrl);
   const updateHtml = await updateHtmlResponse.text();
-  
+
   const documentRoot = parse(updateHtml);
   const stack: HTMLElement[] = [documentRoot];
   let match: HTMLElement | undefined = undefined;
@@ -196,14 +211,23 @@ app.post('/scraper', async (req: CustomRequest<ScraperData>, res) => {
 
   const path: number[] = [];
   let currentElement: HTMLElement;
-  for (currentElement = match; currentElement.parentNode && currentElement.id; currentElement = currentElement.parentNode) {
+  for (
+    currentElement = match;
+    currentElement.parentNode && currentElement.id;
+    currentElement = currentElement.parentNode
+  ) {
     path.push(currentElement.parentNode.childNodes.indexOf(currentElement));
   }
   path.reverse();
 
   await execute(res, async (connection) => {
     await connection.beginTransaction();
-    await addScraper(connection, req.body.experienceId, currentElement.id, path);
+    await addScraper(
+      connection,
+      req.body.experienceId,
+      currentElement.id,
+      path
+    );
     await connection.commit();
 
     res.sendStatus(200);
@@ -211,39 +235,72 @@ app.post('/scraper', async (req: CustomRequest<ScraperData>, res) => {
 });
 
 function pretentiousPhi(score: number) {
-  return 1 / (1 + Math.exp(-2 * (score - 5)))
+  return 1 / (1 + Math.exp(-2 * (score - 5)));
 }
 
 const NUM_CATEGORIES = 18;
 const ROOT_NUMBER = 2;
 function normalizeTGCSVec(tgcs_vec: number[]) {
-    return [Math.pow(pretentiousPhi(tgcs_vec[0]), 1 / ROOT_NUMBER),
-            Math.pow(pretentiousPhi(tgcs_vec[1]), 1 / ROOT_NUMBER),
-            Math.pow(pretentiousPhi(tgcs_vec[2]), 1 / ROOT_NUMBER),
-            Math.pow(pretentiousPhi(tgcs_vec[3]), 1 / ROOT_NUMBER),
-            Math.pow(tgcs_vec[4], 1 / ROOT_NUMBER) / Math.pow(NUM_CATEGORIES, 1 / (2 * ROOT_NUMBER))]
+  return [
+    Math.pow(pretentiousPhi(tgcs_vec[0]), 1 / ROOT_NUMBER),
+    Math.pow(pretentiousPhi(tgcs_vec[1]), 1 / ROOT_NUMBER),
+    Math.pow(pretentiousPhi(tgcs_vec[2]), 1 / ROOT_NUMBER),
+    Math.pow(pretentiousPhi(tgcs_vec[3]), 1 / ROOT_NUMBER),
+    Math.pow(tgcs_vec[4], 1 / (3 * ROOT_NUMBER)) /
+      Math.pow(NUM_CATEGORIES, 1 / (3 * ROOT_NUMBER))
+  ];
 }
 
 await tf.ready();
 const model = await loadSavedModel('tgcs_model/');
-console.log("Loaded TGCS model.");
+console.log('Loaded TGCS model.');
 
 interface RecommendationData {
   preferenceVec: number[];
 }
 
-const categories = ['TECHNOLOGY', 'SCIENCE', 'BIOLOGY', 'CHEMISTRY', 'PHYSICS', 'MATH', 'ENGINEERING', 'BUSINESS', 'MEDICAL', 'CULINARY', 'MUSIC', 'ATHLETICS', 'ART', 'THEATER', 'DANCE', 'LANGUAGE ARTS', 'SPELLING', 'GEOGRAPHY', 'HISTORY', 'FOREIGN LANGUAGE', 'CHESS', 'RESEARCH', 'OTHER'];
+const categories = [
+  'TECHNOLOGY',
+  'SCIENCE',
+  'BIOLOGY',
+  'CHEMISTRY',
+  'PHYSICS',
+  'MATH',
+  'ENGINEERING',
+  'BUSINESS',
+  'MEDICAL',
+  'CULINARY',
+  'MUSIC',
+  'ATHLETICS',
+  'ART',
+  'THEATER',
+  'DANCE',
+  'LANGUAGE ARTS',
+  'SPELLING',
+  'GEOGRAPHY',
+  'HISTORY',
+  'FOREIGN LANGUAGE',
+  'CHESS',
+  'RESEARCH',
+  'OTHER'
+];
 app.post('/recommendations', (req: CustomRequest<RecommendationData>, res) => {
   execute(res, async (connection) => {
     await connection.beginTransaction();
     const experiences = await queryAllExperiences(connection);
     const inputs: number[][] = [];
     for (const experience of experiences) {
-      const categoryRecord = experience['categories'] as Record<string, object>[];
+      const categoryRecord = experience['categories'] as Record<
+        string,
+        object
+      >[];
       let prefNorm = 0;
       for (let i = 0; i < req.body.preferenceVec.length; ++i) {
         const hasPreference = req.body.preferenceVec[i];
-        const hasActual = categoryRecord.find(categoryObject => String(categoryObject['category']) == categories[i]);
+        const hasActual = categoryRecord.find(
+          (categoryObject) =>
+            String(categoryObject['category']) == categories[i]
+        );
         if (!hasActual || !hasPreference) {
           prefNorm += 0.01;
         } else {
@@ -251,14 +308,33 @@ app.post('/recommendations', (req: CustomRequest<RecommendationData>, res) => {
         }
       }
 
-      inputs.push(normalizeTGCSVec([Number(experience['score_time']), Number(experience['score_difficulty']), Number(experience['score_benefit']), Number(experience['score_mgmt']), prefNorm]));
+      inputs.push(
+        normalizeTGCSVec([
+          Number(experience['score_time']),
+          Number(experience['score_difficulty']),
+          Number(experience['score_benefit']),
+          Number(experience['score_mgmt']),
+          prefNorm
+        ])
+      );
     }
 
     const resultTensor = model.predict(tf.tensor(inputs)) as tf.Tensor;
-    const result = await resultTensor.array() as number[][];
-    console.log(experiences.map((exp, i) => [String(exp['name']), result[i][0]] as [string, number]).sort((groupA, groupB) => groupB[1] - groupA[1]));
-    res.sendStatus(200);
+    const result = (await resultTensor.array()) as number[][];
     await connection.commit();
+
+    res.send(
+      experiences
+        .map(
+          (exp, i) =>
+            [exp['experience_id'], exp['name'], result[i][0]] as [
+              object,
+              object,
+              number
+            ]
+        )
+        .sort((groupA, groupB) => groupB[2] - groupA[2])
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import { Connection, RowDataPacket } from 'mysql2/promise';
+import { Connection, RowDataPacket } from 'mysql2/promise.js';
 import { queryAllCompetitions } from './competition.js';
 import { queryAllExperienceCategories } from './experience-category.js';
 import { queryAllExperiencePrerequisites } from './experience-prerequisite.js';
@@ -152,4 +152,19 @@ export async function queryAllExperiences(
   }
 
   return experiences;
+}
+
+// lazy
+export async function queryExperience(
+  connection: Connection,
+  experienceId: number
+): Promise<Record<string, object> | undefined> {
+  const experiences = await queryAllExperiences(connection);
+  for (const experience of experiences) {
+    if (Number(experience['experience_id']) === experienceId) {
+      return experience;
+    }
+  }
+
+  return undefined;
 }

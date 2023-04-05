@@ -1,4 +1,4 @@
-import { Connection } from 'mysql2/promise';
+import { Connection } from 'mysql2/promise.js';
 import { queryAllProgramFocuses } from './program-focus.js';
 import { genericQuery } from './utils/generic-queries.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
@@ -7,7 +7,7 @@ const programFields = [
   'program_id',
   'program_type',
   'monthly_fee',
-  'time_commitment',
+  'time_commitment'
 ];
 const programColumnNames = createCommaSeparatedColumns(
   'program',

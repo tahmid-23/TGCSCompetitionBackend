@@ -99,24 +99,31 @@ export async function update(
 export async function remove(
   connection: Connection,
   tableName: string,
+  rowName: string,
   rowId: number
 ) {
-  const tableId = tableNameToId[tableName];
-  if (!tableId) {
-    throw new Error(`Unknown table name ${tableName}`);
-  }
-
   await connection.query(
-    `DELETE FROM \`${tableName}\` WHERE \`${tableId}\` = ?`,
+    `DELETE FROM \`${tableName}\` WHERE \`${rowName}\` = ?`,
     [rowId]
   );
 }
 
-export async function addScraper(connection: Connection, experienceId: number, root: string | undefined, path: number[]) {
-  const [result] = await connection.query<ResultSetHeader>(`INSERT INTO \`scraper\` (\`experience_id\`, \`root\`) VALUES (?, ?)`, [experienceId, root]);
-  
+export async function addScraper(
+  connection: Connection,
+  experienceId: number,
+  root: string | undefined,
+  path: number[]
+) {
+  const [result] = await connection.query<ResultSetHeader>(
+    `INSERT INTO \`scraper\` (\`experience_id\`, \`root\`) VALUES (?, ?)`,
+    [experienceId, root]
+  );
+
   const insertId = result.insertId;
   for (let i = 0; i < path.length; ++i) {
-    await connection.query(`INSERT INTO \`scraper_path\` (\`scraper_id\`, \`order\`, \`value\`) VALUES (?, ?, ?)`, [insertId, i, path[i]]);
+    await connection.query(
+      `INSERT INTO \`scraper_path\` (\`scraper_id\`, \`order\`, \`value\`) VALUES (?, ?, ?)`,
+      [insertId, i, path[i]]
+    );
   }
 }
