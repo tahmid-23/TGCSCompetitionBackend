@@ -8,11 +8,11 @@ interface Login {
 
 export async function queryLogin(
   connection: Connection,
-  username: string
+  email: string
 ): Promise<Login | undefined> {
   const [rows] = await connection.query<RowDataPacket[]>(
-    'SELECT hash, expiration, admin FROM login WHERE username = ?',
-    [username]
+    'SELECT hash, expiration, admin FROM login WHERE email = ?',
+    [email]
   );
 
   if (rows.length === 0) {
@@ -28,30 +28,29 @@ export async function queryLogin(
 
 export async function updateExpirationTime(
   connection: Connection,
-  username: string,
+  email: string,
   expiration: number
 ): Promise<void> {
   await connection.execute(
-    'UPDATE login SET expiration = ? WHERE username = ?',
-    [username, expiration]
+    'UPDATE login SET expiration = ? WHERE email = ?',
+    [email, expiration]
   );
 }
 
 export async function removeLogin(
   connection: Connection,
-  username: string
+  email: string
 ): Promise<void> {
-  await connection.execute('DELETE FROM login WHERE username = ?', [username]);
+  await connection.execute('DELETE FROM login WHERE email = ?', [email]);
 }
 
 export async function createLogin(
   connection: Connection,
-  username: string,
+  email: string,
   hash: string,
-  admin: boolean
 ) {
   await connection.execute(
-    'INSERT INTO login (username, hash, admin) VALUES (?, ?, ?)',
-    [username, hash, admin]
+    'INSERT INTO login (email, hash) VALUES (?, ?)',
+    [email, hash]
   );
 }

@@ -1,5 +1,5 @@
 import tf from '@tensorflow/tfjs-node';
-import { loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
+import { TFSavedModel, loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Response } from 'express';
@@ -15,7 +15,7 @@ import { addScraper, insert, remove, update } from './queries/update.js';
 import session from 'express-session';
 import {
   createLogin,
-  queryLogin as queryHash,
+  queryLogin,
   removeLogin,
   updateExpirationTime
 } from './queries/password.js';
@@ -106,19 +106,19 @@ export interface CustomRequest<T> extends Express.Request {
 }
 
 interface LoginData {
-  username: string;
-  password: string;
+  email: string;
+  token: string;
 }
 
 app.post('/login', async (req: CustomRequest<LoginData>, res) => {
   await execute(res, async (connection) => {
-    const login = await queryHash(connection, req.body.username);
+    const login = await queryLogin(connection, req.body.email);
     if (!login) {
       res.sendStatus(401);
       return;
     }
 
-    if (!(await bcrypt.compare(req.body.password, login.hash))) {
+    if (!(await bcrypt.compare(req.body.token, login.hash))) {
       res.sendStatus(401);
       return;
     }
@@ -126,7 +126,7 @@ app.post('/login', async (req: CustomRequest<LoginData>, res) => {
     if (login.expiration) {
       if (Date.now() >= login.expiration) {
         res.sendStatus(401);
-        removeLogin(connection, req.body.username).catch(console.error);
+        removeLogin(connection, req.body.email).catch(console.error);
 
         return;
       }
@@ -136,39 +136,39 @@ app.post('/login', async (req: CustomRequest<LoginData>, res) => {
       req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
       updateExpirationTime(
         connection,
-        req.body.username,
+        req.body.email,
         Date.now() + 24 * 60 * 60 * 1000
       ).catch(console.error);
     }
 
     req.session.authenticated = true;
     req.session.admin = login.admin;
+
+    res.sendStatus(200);
   });
 });
 
 interface CreateUserData {
-  username: string;
-  password: string;
-  admin?: boolean;
+  email: string;
+  token: string;
 }
 
 app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
-  if (!req.session.authenticated) {
-    res.sendStatus(401);
-    return;
-  }
-  if (!req.session.admin) {
-    res.sendStatus(403);
-    return;
-  }
+  // if (!req.session.authenticated) {
+  //   res.sendStatus(401);
+  //   return;
+  // }
+  // if (!req.session.admin) {
+  //   res.sendStatus(403);
+  //   return;
+  // }
 
-  const hash = await bcrypt.hash(req.body.password, 10);
+  const hash = await bcrypt.hash(req.body.token, 10);
   await execute(res, async (connection) => {
     await createLogin(
       connection,
-      req.body.username,
+      req.body.email,
       hash,
-      req.body.admin === null ? false : req.body.admin!
     );
 
     res.sendStatus(200);
@@ -176,11 +176,11 @@ app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
 });
 
 app.use(async (req, res, next) => {
-  if (!req.session.authenticated) {
-    res.sendStatus(401);
-  } else {
+  // if (!req.session.authenticated) {
+  //   res.sendStatus(401);
+  // } else {
     next();
-  }
+  // }
 });
 
 app.get('/experiences', async (_req, res) => {
@@ -364,7 +364,7 @@ function normalizeTGCSVec(tgcs_vec: number[]) {
 }
 
 await tf.ready();
-const model = await loadSavedModel('tgcs_model/');
+const model = undefined as unknown as TFSavedModel;// await loadSavedModel('tgcs_model/');
 console.log('Loaded TGCS model.');
 
 interface RecommendationData {
