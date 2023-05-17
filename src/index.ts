@@ -2,7 +2,7 @@
 // import { TFSavedModel, loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import express, { Response } from 'express';
+import express, { Request, Response } from 'express';
 import { PoolConnection } from 'mysql2/promise.js';
 import fetch from 'node-fetch';
 import { HTMLElement, NodeType, parse } from 'node-html-parser';
@@ -15,7 +15,8 @@ import { addScraper, insert, remove, update } from './queries/update.js';
 import session from 'express-session';
 import {
   createLogin,
-  queryLogin,
+  isAdmin,
+  queryHash,
   removeLogin,
   updateExpirationTime
 } from './queries/password.js';
@@ -23,6 +24,10 @@ import {
 import bcrypt from 'bcrypt';
 
 import nodemailer from 'nodemailer';
+import {OAuth2Client} from 'google-auth-library';
+
+import cookieParser from 'cookie-parser';
+import { CorsOptions } from 'cors';
 
 dotenv.config();
 
@@ -37,11 +42,11 @@ const serverPort = Number(process.env.SERVER_PORT) || 3000;
 
 app.use(
   cors((req, callback) => {
-    let corsOptions;
+    let corsOptions: CorsOptions;
     if (req.ip.startsWith('192.168') || req.ip === '127.0.0.1') {
-      corsOptions = { origin: true };
+      corsOptions = { origin: true, credentials: true };
     } else {
-      corsOptions = { origin: false };
+      corsOptions = { origin: false, credentials: true };
     }
 
     callback(null, corsOptions);
@@ -55,8 +60,9 @@ if (!sessionSecret) {
 
 declare module 'express-session' {
   interface SessionData {
-    authenticated: boolean;
+    email: string;
     admin: boolean;
+    hasAccess: boolean;
   }
 }
 
@@ -75,6 +81,7 @@ app.use(session(loginSession));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 async function execute<
   T,
@@ -103,50 +110,62 @@ async function execute<
   }
 }
 
-export interface CustomRequest<T> extends Express.Request {
+export interface CustomRequest<T> extends Request {
   body: T;
 }
 
-interface LoginData {
-  email: string;
-  token: string;
+interface GoogleLoginData {
+  credential: string;
+  //g_csrf_token: string;
 }
 
-app.post('/login', async (req: CustomRequest<LoginData>, res) => {
+const authClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+app.post('/login', async (req: Request, res) => {
+  // const csrfCookie = req.cookies['g_csrf_token'];
+  // if (!csrfCookie) {
+  //   res.sendStatus(400);
+  //   return;
+  // }
+  // if (!req.body.g_csrf_token) {
+  //   res.sendStatus(400);
+  //   return;
+  // }
+  // if (req.body.g_csrf_token != csrfCookie) {
+  //   res.sendStatus(400);
+  //   return;
+  // }  
+
+  const ticket = await authClient.verifyIdToken({
+    idToken: req.body.credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  if (!payload || !payload.email) {
+    res.sendStatus(401);
+    return;
+  }
+
+  const email = payload.email;
   await execute(res, async (connection) => {
-    const login = await queryLogin(connection, req.body.email);
-    if (!login) {
+    if (await isAdmin(connection, email)) {
+      req.session.email = email;
+      req.session.admin = true;
+      req.session.hasAccess = true;
+  
+      res.send({
+        admin: true
+      })
+    } else if (!email.endsWith('giftedchildsociety.org')) {
       res.sendStatus(401);
-      return;
+    } else {
+      req.session.email = email;
+      req.session.admin = false;
+      req.session.hasAccess = false;
+
+      res.send({
+        admin: false
+      })
     }
-
-    if (!(await bcrypt.compare(req.body.token, login.hash))) {
-      res.sendStatus(401);
-      return;
-    }
-
-    if (login.expiration) {
-      if (Date.now() >= login.expiration) {
-        res.sendStatus(401);
-        removeLogin(connection, req.body.email).catch(console.error);
-
-        return;
-      }
-
-      req.session.cookie.maxAge = login.expiration - Date.now();
-    } else if (!login.admin) {
-      req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
-      updateExpirationTime(
-        connection,
-        req.body.email,
-        Date.now() + 24 * 60 * 60 * 1000
-      ).catch(console.error);
-    }
-
-    req.session.authenticated = true;
-    req.session.admin = login.admin;
-
-    res.sendStatus(200);
   });
 });
 
@@ -155,29 +174,35 @@ interface CreateUserData {
   token: string;
 }
 
+app.use(async (req, res, next) => {
+  if (!req.session.email) {
+    res.sendStatus(401);
+  } else {
+    next();
+  }
+});
+
 app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
-  // if (!req.session.authenticated) {
-  //   res.sendStatus(401);
-  //   return;
-  // }
-  // if (!req.session.admin) {
-  //   res.sendStatus(403);
-  //   return;
-  // }
+  if (!req.session.admin) {
+    res.sendStatus(403);
+    return;
+  }
 
   const hash = await bcrypt.hash(req.body.token, 10);
   await execute(res, async (connection) => {
     await createLogin(connection, req.body.email, hash).then(() => {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: true,
         auth: {
-          user: 'jp_pybot@gmail.com',
-          pass: 'hagjerman'
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
         }
       });
 
       const mailOptions = {
-        from: 'jp_pybot@gmail.com',
+        from: 'tgcs_noreply@rambler.ru',
         to: req.body.email,
         subject: '[NO_REPLY] TGCS Competition Database Login Token',
         text: `This is a confirmation email for your purchase to access the TGCS Competition Database. Please go to {url}/login and log in to your gifted.org email address. You will be prompted to enter a token. Your login token is ${req.body.token}. You will have access to the database for 24 hours from the first time you log in. After this period is over, you may purchase further access, and you will receive a new token. Please send any questions or concerns to admin@gifted.org. Replies to this email will not be processed.`
@@ -196,12 +221,56 @@ app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
   });
 });
 
+interface LoginData {
+  token: string;
+}
+
+app.post('/token', async (req: CustomRequest<LoginData>, res) => {
+  console.log("here1")
+  await execute(res, async (connection) => {
+    console.log("here2");
+    const login = await queryHash(connection, req.session.email!);
+    if (!login) {
+      res.sendStatus(401);
+      return;
+    }
+
+    console.log("here3");
+    if (!(await bcrypt.compare(req.body.token, login.hash))) {
+      res.sendStatus(401);
+      return;
+    }
+
+    console.log("here4");
+    if (login.expiration) {
+      if (Date.now() >= login.expiration) {
+        res.sendStatus(401);
+        removeLogin(connection, req.session.email!).catch(console.error);
+
+        return;
+      }
+
+      req.session.cookie.maxAge = login.expiration - Date.now();
+    } else if (!req.session.admin) {
+      req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
+      updateExpirationTime(
+        connection,
+        req.session.email!,
+        Date.now() + 24 * 60 * 60 * 1000
+      ).catch(console.error);
+    }
+
+    req.session.hasAccess = true;
+    res.sendStatus(200);
+  });
+});
+
 app.use(async (req, res, next) => {
-  // if (!req.session.authenticated) {
-  //   res.sendStatus(401);
-  // } else {
-  next();
-  // }
+  if (!req.session.admin && !req.session.hasAccess) {
+    res.sendStatus(401);
+  } else {
+    next();
+  }
 });
 
 app.get('/experiences', async (_req, res) => {

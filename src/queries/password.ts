@@ -3,15 +3,14 @@ import { Connection, RowDataPacket } from 'mysql2/promise.js';
 interface Login {
   hash: string;
   expiration: number | undefined;
-  admin: boolean;
 }
 
-export async function queryLogin(
+export async function queryHash(
   connection: Connection,
   email: string
 ): Promise<Login | undefined> {
   const [rows] = await connection.query<RowDataPacket[]>(
-    'SELECT hash, expiration, admin FROM login WHERE email = ?',
+    'SELECT hash, expiration FROM login WHERE email = ?',
     [email]
   );
 
@@ -22,7 +21,6 @@ export async function queryLogin(
   return {
     hash: rows[0].hash,
     expiration: rows[0].expiration,
-    admin: rows[0].admin
   };
 }
 
@@ -53,4 +51,12 @@ export async function createLogin(
     'INSERT INTO login (email, hash) VALUES (?, ?)',
     [email, hash]
   );
+}
+
+export async function isAdmin(connection: Connection, email: string): Promise<boolean> {
+  const [rows] = await connection.execute<RowDataPacket[]>(
+    'SELECT 1 FROM admin WHERE email = ?', [email]
+  );
+  
+  return rows.length > 0;
 }
