@@ -1,4 +1,4 @@
-import { Connection } from 'mysql2/promise';
+import { Connection } from 'mysql2/promise.js';
 import { genericMultiQuery } from './utils/generic-queries.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
 

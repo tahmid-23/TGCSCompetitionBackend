@@ -1,4 +1,4 @@
-import { Connection, RowDataPacket } from 'mysql2/promise';
+import { Connection, RowDataPacket } from 'mysql2/promise.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
 
 const sponsorFields = ['sponsor_id', 'name', 'address', 'email', 'phone'];

@@ -12,6 +12,15 @@ import { queryAllExperiences, queryExperience } from './queries/experience.js';
 import { queryAllFeedbackIds } from './queries/feedback.js';
 import { queryAllSponsors } from './queries/sponsor.js';
 import { addScraper, insert, remove, update } from './queries/update.js';
+import session from 'express-session';
+import {
+  createLogin,
+  queryLogin as queryHash,
+  removeLogin,
+  updateExpirationTime
+} from './queries/password.js';
+
+import bcrypt from 'bcrypt';
 
 dotenv.config();
 
@@ -36,6 +45,31 @@ app.use(
     callback(null, corsOptions);
   })
 );
+
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw Error('Session secret undefined');
+}
+
+declare module 'express-session' {
+  interface SessionData {
+    authenticated: boolean;
+    admin: boolean;
+  }
+}
+
+const loginSession: session.SessionOptions = {
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {}
+};
+
+if (app.get('env') === 'production' && loginSession.cookie) {
+  loginSession.cookie.secure = true;
+}
+
+app.use(session(loginSession));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -67,6 +101,88 @@ async function execute<
   }
 }
 
+export interface CustomRequest<T> extends Express.Request {
+  body: T;
+}
+
+interface LoginData {
+  username: string;
+  password: string;
+}
+
+app.post('/login', async (req: CustomRequest<LoginData>, res) => {
+  await execute(res, async (connection) => {
+    const login = await queryHash(connection, req.body.username);
+    if (!login) {
+      res.sendStatus(401);
+      return;
+    }
+
+    if (!(await bcrypt.compare(req.body.password, login.hash))) {
+      res.sendStatus(401);
+      return;
+    }
+
+    if (login.expiration) {
+      if (Date.now() >= login.expiration) {
+        res.sendStatus(401);
+        removeLogin(connection, req.body.username).catch(console.error);
+
+        return;
+      }
+
+      req.session.cookie.maxAge = login.expiration - Date.now();
+    } else if (!login.admin) {
+      req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
+      updateExpirationTime(
+        connection,
+        req.body.username,
+        Date.now() + 24 * 60 * 60 * 1000
+      ).catch(console.error);
+    }
+
+    req.session.authenticated = true;
+    req.session.admin = login.admin;
+  });
+});
+
+interface CreateUserData {
+  username: string;
+  password: string;
+  admin?: boolean;
+}
+
+app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
+  if (!req.session.authenticated) {
+    res.sendStatus(401);
+    return;
+  }
+  if (!req.session.admin) {
+    res.sendStatus(403);
+    return;
+  }
+
+  const hash = await bcrypt.hash(req.body.password, 10);
+  await execute(res, async (connection) => {
+    await createLogin(
+      connection,
+      req.body.username,
+      hash,
+      req.body.admin === null ? false : req.body.admin!
+    );
+
+    res.sendStatus(200);
+  });
+});
+
+app.use(async (req, res, next) => {
+  if (!req.session.authenticated) {
+    res.sendStatus(401);
+  } else {
+    next();
+  }
+});
+
 app.get('/experiences', async (_req, res) => {
   await execute(res, async (connection) => {
     const experiences = await queryAllExperiences(connection);
@@ -97,10 +213,6 @@ app.get('/feedback', async (_req, res) => {
     res.json(feedbackIds);
   });
 });
-
-export interface CustomRequest<T> extends Express.Request {
-  body: T;
-}
 
 export interface InsertData {
   tableName: string;

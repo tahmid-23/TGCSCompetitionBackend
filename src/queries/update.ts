@@ -89,8 +89,8 @@ export async function update(
   }
 
   await connection.query(
-    `UPDATE \`${tableName}\`` +
-      `SET ${createEqualsSeparatedUpdateColumns(Object.keys(data))}` +
+    `UPDATE \`${tableName}\` ` +
+      `SET ${createEqualsSeparatedUpdateColumns(Object.keys(data))} ` +
       `WHERE \`${tableId}\` = ?`,
     [...Object.values(data), rowId]
   );

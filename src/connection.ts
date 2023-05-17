@@ -1,4 +1,4 @@
-import mysql, { Pool } from 'mysql2/promise';
+import mysql, { Pool } from 'mysql2/promise.js';
 
 export function createTGCSPool(
   host?: string,
