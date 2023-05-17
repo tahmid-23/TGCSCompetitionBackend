@@ -1,5 +1,5 @@
-import tf from '@tensorflow/tfjs-node';
-import { TFSavedModel, loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
+// import tf from '@tensorflow/tfjs-node';
+// import { TFSavedModel, loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Response } from 'express';
@@ -21,6 +21,8 @@ import {
 } from './queries/password.js';
 
 import bcrypt from 'bcrypt';
+
+import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -165,11 +167,30 @@ app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
 
   const hash = await bcrypt.hash(req.body.token, 10);
   await execute(res, async (connection) => {
-    await createLogin(
-      connection,
-      req.body.email,
-      hash,
-    );
+    await createLogin(connection, req.body.email, hash).then(() => {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: 'jp_pybot@gmail.com',
+          pass: 'hagjerman'
+        }
+      });
+
+      const mailOptions = {
+        from: 'jp_pybot@gmail.com',
+        to: req.body.email,
+        subject: '[NO_REPLY] TGCS Competition Database Login Token',
+        text: `This is a confirmation email for your purchase to access the TGCS Competition Database. Please go to {url}/login and log in to your gifted.org email address. You will be prompted to enter a token. Your login token is ${req.body.token}. You will have access to the database for 24 hours from the first time you log in. After this period is over, you may purchase further access, and you will receive a new token. Please send any questions or concerns to admin@gifted.org. Replies to this email will not be processed.`
+      };
+
+      transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.log(error);
+        } else {
+          console.log('Email sent: ' + info.response);
+        }
+      });
+    });
 
     res.sendStatus(200);
   });
@@ -179,7 +200,7 @@ app.use(async (req, res, next) => {
   // if (!req.session.authenticated) {
   //   res.sendStatus(401);
   // } else {
-    next();
+  next();
   // }
 });
 
@@ -363,8 +384,8 @@ function normalizeTGCSVec(tgcs_vec: number[]) {
   ];
 }
 
-await tf.ready();
-const model = undefined as unknown as TFSavedModel;// await loadSavedModel('tgcs_model/');
+// await tf.ready();
+// const model = undefined as unknown as TFSavedModel;// await loadSavedModel('tgcs_model/');
 console.log('Loaded TGCS model.');
 
 interface RecommendationData {
@@ -431,22 +452,22 @@ app.post('/recommendations', (req: CustomRequest<RecommendationData>, res) => {
       );
     }
 
-    const resultTensor = model.predict(tf.tensor(inputs)) as tf.Tensor;
-    const result = (await resultTensor.array()) as number[][];
+    // const resultTensor = model.predict(tf.tensor(inputs)) as tf.Tensor;
+    // const result = (await resultTensor.array()) as number[][];
     await connection.commit();
 
-    res.send(
-      experiences
-        .map(
-          (exp, i) =>
-            [exp['experience_id'], exp['name'], result[i][0]] as [
-              object,
-              object,
-              number
-            ]
-        )
-        .sort((groupA, groupB) => groupB[2] - groupA[2])
-    );
+    // res.send(
+    //   experiences
+    //     .map(
+    //       (exp, i) =>
+    //         [exp['experience_id'], exp['name'], result[i][0]] as [
+    //           object,
+    //           object,
+    //           number
+    //         ]
+    //     )
+    //     .sort((groupA, groupB) => groupB[2] - groupA[2])
+    // );
   });
 });
 
