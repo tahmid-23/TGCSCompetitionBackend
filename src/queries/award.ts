@@ -2,7 +2,7 @@ import { Connection } from 'mysql2/promise.js';
 import { genericMultiQuery } from './utils/generic-queries.js';
 import { createCommaSeparatedColumns } from './utils/query-utils.js';
 
-const awardFields = ['competition_id', 'type', 'description'];
+const awardFields = ['award_id', 'competition_id', 'type', 'description'];
 const awardColumns = createCommaSeparatedColumns('award', awardFields);
 
 export async function queryAllAwards(

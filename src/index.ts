@@ -14,6 +14,7 @@ import { queryAllSponsors } from './queries/sponsor.js';
 import { addScraper, insert, remove, update } from './queries/update.js';
 import session from 'express-session';
 import {
+  Login,
   createLogin,
   isAdmin,
   queryHash,
@@ -28,6 +29,7 @@ import {OAuth2Client} from 'google-auth-library';
 
 import cookieParser from 'cookie-parser';
 import { CorsOptions } from 'cors';
+import { resolve } from 'path';
 
 dotenv.config();
 
@@ -221,27 +223,40 @@ app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
   });
 });
 
+function firstTrue(promises: Promise<boolean>[]) {
+  const newPromises = promises.map(p => new Promise<boolean>(
+      (resolve, reject) => p.then(v => v && resolve(true), reject)
+  ));
+  newPromises.push(Promise.all(promises).then(() => false));
+  return Promise.race(newPromises);
+}
+
 interface LoginData {
   token: string;
 }
 
 app.post('/token', async (req: CustomRequest<LoginData>, res) => {
-  console.log("here1")
   await execute(res, async (connection) => {
-    console.log("here2");
-    const login = await queryHash(connection, req.session.email!);
+    const logins = await queryHash(connection, req.session.email!);
+    if (logins.length == 0) {
+      res.sendStatus(401);
+      return;
+    }
+
+    const innerPromises = logins.map(login => bcrypt.compare(req.body.token, login.hash).then(areEqual => areEqual && login));
+    const outerPromises: Promise<Login | undefined>[] = innerPromises.map(promise => {
+      return new Promise<Login>((resolve, reject) => {
+        promise.then(login => login && resolve(login), reject);
+      });
+    });
+    outerPromises.push(Promise.race(outerPromises).then(() => undefined));
+
+    const login = await Promise.race(outerPromises);
     if (!login) {
       res.sendStatus(401);
       return;
     }
 
-    console.log("here3");
-    if (!(await bcrypt.compare(req.body.token, login.hash))) {
-      res.sendStatus(401);
-      return;
-    }
-
-    console.log("here4");
     if (login.expiration) {
       if (Date.now() >= login.expiration) {
         res.sendStatus(401);

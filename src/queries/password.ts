@@ -1,6 +1,6 @@
 import { Connection, RowDataPacket } from 'mysql2/promise.js';
 
-interface Login {
+export interface Login {
   hash: string;
   expiration: number | undefined;
 }
@@ -8,20 +8,18 @@ interface Login {
 export async function queryHash(
   connection: Connection,
   email: string
-): Promise<Login | undefined> {
+): Promise<Login[]> {
   const [rows] = await connection.query<RowDataPacket[]>(
     'SELECT hash, expiration FROM login WHERE email = ?',
     [email]
   );
 
-  if (rows.length === 0) {
-    return undefined;
-  }
-
-  return {
-    hash: rows[0].hash,
-    expiration: rows[0].expiration,
-  };
+  return rows.map(row => {
+    return {
+      hash: row.hash,
+      expiration: row.expiration
+    }
+  });
 }
 
 export async function updateExpirationTime(
@@ -31,7 +29,7 @@ export async function updateExpirationTime(
 ): Promise<void> {
   await connection.execute(
     'UPDATE login SET expiration = ? WHERE email = ?',
-    [email, expiration]
+    [expiration, email]
   );
 }
 
