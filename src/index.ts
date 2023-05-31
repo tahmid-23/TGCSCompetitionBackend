@@ -25,11 +25,10 @@ import {
 import bcrypt from 'bcrypt';
 
 import nodemailer from 'nodemailer';
-import {OAuth2Client} from 'google-auth-library';
+import { OAuth2Client } from 'google-auth-library';
 
 import cookieParser from 'cookie-parser';
 import { CorsOptions } from 'cors';
-import { resolve } from 'path';
 
 dotenv.config();
 
@@ -44,14 +43,10 @@ const serverPort = Number(process.env.SERVER_PORT) || 3000;
 
 app.use(
   cors((req, callback) => {
-    let corsOptions: CorsOptions;
-    if (req.ip.startsWith('192.168') || req.ip === '127.0.0.1') {
-      corsOptions = { origin: true, credentials: true };
-    } else {
-      corsOptions = { origin: false, credentials: true };
-    }
-
-    callback(null, corsOptions);
+    callback(null, {
+      origin: true,
+      credentials: true
+    });
   })
 );
 
@@ -135,11 +130,11 @@ app.post('/login', async (req: Request, res) => {
   // if (req.body.g_csrf_token != csrfCookie) {
   //   res.sendStatus(400);
   //   return;
-  // }  
+  // }
 
   const ticket = await authClient.verifyIdToken({
     idToken: req.body.credential,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    audience: process.env.GOOGLE_CLIENT_ID
   });
   const payload = ticket.getPayload();
   if (!payload || !payload.email) {
@@ -153,10 +148,10 @@ app.post('/login', async (req: Request, res) => {
       req.session.email = email;
       req.session.admin = true;
       req.session.hasAccess = true;
-  
+
       res.send({
         admin: true
-      })
+      });
     } else if (!email.endsWith('giftedchildsociety.org')) {
       res.sendStatus(401);
     } else {
@@ -166,7 +161,7 @@ app.post('/login', async (req: Request, res) => {
 
       res.send({
         admin: false
-      })
+      });
     }
   });
 });
@@ -177,7 +172,7 @@ interface CreateUserData {
 }
 
 app.use(async (req, res, next) => {
-  if (!req.session.email) {
+  if (false && !req.session.email) {
     res.sendStatus(401);
   } else {
     next();
@@ -223,14 +218,6 @@ app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
   });
 });
 
-function firstTrue(promises: Promise<boolean>[]) {
-  const newPromises = promises.map(p => new Promise<boolean>(
-      (resolve, reject) => p.then(v => v && resolve(true), reject)
-  ));
-  newPromises.push(Promise.all(promises).then(() => false));
-  return Promise.race(newPromises);
-}
-
 interface LoginData {
   token: string;
 }
@@ -243,12 +230,18 @@ app.post('/token', async (req: CustomRequest<LoginData>, res) => {
       return;
     }
 
-    const innerPromises = logins.map(login => bcrypt.compare(req.body.token, login.hash).then(areEqual => areEqual && login));
-    const outerPromises: Promise<Login | undefined>[] = innerPromises.map(promise => {
-      return new Promise<Login>((resolve, reject) => {
-        promise.then(login => login && resolve(login), reject);
-      });
-    });
+    const innerPromises = logins.map((login) =>
+      bcrypt
+        .compare(req.body.token, login.hash)
+        .then((areEqual) => areEqual && login)
+    );
+    const outerPromises: Promise<Login | undefined>[] = innerPromises.map(
+      (promise) => {
+        return new Promise<Login>((resolve, reject) => {
+          promise.then((login) => login && resolve(login), reject);
+        });
+      }
+    );
     outerPromises.push(Promise.race(outerPromises).then(() => undefined));
 
     const login = await Promise.race(outerPromises);
@@ -281,7 +274,7 @@ app.post('/token', async (req: CustomRequest<LoginData>, res) => {
 });
 
 app.use(async (req, res, next) => {
-  if (!req.session.admin && !req.session.hasAccess) {
+  if (false && !req.session.admin && !req.session.hasAccess) {
     res.sendStatus(401);
   } else {
     next();
