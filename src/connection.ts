@@ -9,7 +9,7 @@ export function createTGCSPool(
     connectionLimit: 10,
     host: host,
     port: port,
-    user: 'tgcs',
+    user: 'gifted_child',
     password: password,
     database: 'tgcs_competition'
   });

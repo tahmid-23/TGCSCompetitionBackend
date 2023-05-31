@@ -166,6 +166,13 @@ app.post('/login', async (req: Request, res) => {
   });
 });
 
+app.get('/check-login', (req, res) => {
+  res.json({
+    admin: req.session.admin ? true : false,
+    hasAccess: req.session.hasAccess ? true : false
+  });
+});
+
 interface CreateUserData {
   email: string;
   token: string;
