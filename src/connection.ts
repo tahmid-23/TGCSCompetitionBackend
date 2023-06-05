@@ -1,16 +1,13 @@
 import mysql, { Pool } from 'mysql2/promise.js';
+import { SqlConfig } from './config.js';
 
-export function createTGCSPool(
-  host?: string,
-  port?: number,
-  password?: string
-): Pool {
+export function createTGCSPool(config: SqlConfig): Pool {
   return mysql.createPool({
     connectionLimit: 10,
-    host: host,
-    port: port,
-    user: 'gifted_child',
-    password: password,
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
     database: 'tgcs_competition'
   });
 }

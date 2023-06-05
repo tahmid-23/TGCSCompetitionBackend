@@ -1,7 +1,6 @@
 // import tf from '@tensorflow/tfjs-node';
 // import { TFSavedModel, loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
 import { PoolConnection } from 'mysql2/promise.js';
 import fetch from 'node-fetch';
@@ -29,17 +28,15 @@ import { OAuth2Client } from 'google-auth-library';
 
 import cookieParser from 'cookie-parser';
 import { CorsOptions } from 'cors';
+import { readFileSync } from 'fs';
+import { Config } from './config.js';
 
-dotenv.config();
+const config: Config = JSON.parse(readFileSync('config.json', 'utf8'));
 
-const pool = createTGCSPool(
-  process.env.HOST,
-  Number(process.env.DB_PORT) || 3306,
-  process.env.PASSWORD
-);
+const pool = createTGCSPool(config.sql);
 
 const app = express();
-const serverPort = Number(process.env.SERVER_PORT) || 3000;
+const serverPort = config.backend.port;
 
 app.use(
   cors((req, callback) => {
@@ -50,7 +47,7 @@ app.use(
   })
 );
 
-const sessionSecret = process.env.SESSION_SECRET;
+const sessionSecret = config.backend.secret;
 if (!sessionSecret) {
   throw Error('Session secret undefined');
 }
@@ -116,7 +113,7 @@ interface GoogleLoginData {
   //g_csrf_token: string;
 }
 
-const authClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const authClient = new OAuth2Client(config.backend.googleClientId);
 app.post('/login', async (req: Request, res) => {
   // const csrfCookie = req.cookies['g_csrf_token'];
   // if (!csrfCookie) {
@@ -134,7 +131,7 @@ app.post('/login', async (req: Request, res) => {
 
   const ticket = await authClient.verifyIdToken({
     idToken: req.body.credential,
-    audience: process.env.GOOGLE_CLIENT_ID
+    audience: config.backend.googleClientId
   });
   const payload = ticket.getPayload();
   if (!payload || !payload.email) {
@@ -196,12 +193,12 @@ app.post('/create-user', async (req: CustomRequest<CreateUserData>, res) => {
   await execute(res, async (connection) => {
     await createLogin(connection, req.body.email, hash).then(() => {
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT),
+        host: config.smtp.host,
+        port: config.smtp.port,
         secure: true,
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
+          user: config.smtp.user,
+          pass: config.smtp.password
         }
       });
 
@@ -281,7 +278,7 @@ app.post('/token', async (req: CustomRequest<LoginData>, res) => {
 });
 
 app.use(async (req, res, next) => {
-  if (false && !req.session.admin && !req.session.hasAccess) {
+  if (!req.session.admin && !req.session.hasAccess) {
     res.sendStatus(401);
   } else {
     next();
