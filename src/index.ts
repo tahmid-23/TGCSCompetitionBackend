@@ -1,5 +1,3 @@
-// import tf from '@tensorflow/tfjs-node';
-// import { TFSavedModel, loadSavedModel } from '@tensorflow/tfjs-node/dist/saved_model.js';
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 import { PoolConnection } from 'mysql2/promise.js';
@@ -25,6 +23,7 @@ import bcrypt from 'bcrypt';
 
 import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
+import * as tf from '@tensorflow/tfjs-node';
 
 import cookieParser from 'cookie-parser';
 import { CorsOptions } from 'cors';
@@ -163,20 +162,13 @@ app.post('/login', async (req: Request, res) => {
   });
 });
 
-app.get('/check-login', (req, res) => {
-  res.json({
-    admin: req.session.admin ? true : false,
-    hasAccess: req.session.hasAccess ? true : false
-  });
-});
-
 interface CreateUserData {
   email: string;
   token: string;
 }
 
 app.use(async (req, res, next) => {
-  if (false && !req.session.email) {
+  if (!req.session.email) {
     res.sendStatus(401);
   } else {
     next();
@@ -465,8 +457,8 @@ function normalizeTGCSVec(tgcs_vec: number[]) {
   ];
 }
 
-// await tf.ready();
-// const model = undefined as unknown as TFSavedModel;// await loadSavedModel('tgcs_model/');
+await tf.ready();
+const model = await tf.loadLayersModel('file://tgcs_model/model.json');
 console.log('Loaded TGCS model.');
 
 interface RecommendationData {
@@ -533,22 +525,16 @@ app.post('/recommendations', (req: CustomRequest<RecommendationData>, res) => {
       );
     }
 
-    // const resultTensor = model.predict(tf.tensor(inputs)) as tf.Tensor;
-    // const result = (await resultTensor.array()) as number[][];
+    const resultTensor = model.predict(tf.tensor(inputs)) as tf.Tensor;
+    const result = (await resultTensor.array()) as number[][];
     await connection.commit();
 
-    // res.send(
-    //   experiences
-    //     .map(
-    //       (exp, i) =>
-    //         [exp['experience_id'], exp['name'], result[i][0]] as [
-    //           object,
-    //           object,
-    //           number
-    //         ]
-    //     )
-    //     .sort((groupA, groupB) => groupB[2] - groupA[2])
-    // );
+    const response: Record<number, number> = {};
+    for (let i = 0; i < experiences.length; ++i) {
+      const experience = experiences[i];
+      response[experience['experience_id'] as unknown as number] = result[i][0];
+    }
+    res.send(response);
   });
 });
 
