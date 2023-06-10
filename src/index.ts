@@ -63,7 +63,9 @@ const loginSession: session.SessionOptions = {
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: {}
+  cookie: {
+    sameSite: 'none'
+  }
 };
 
 if (app.get('env') === 'production' && loginSession.cookie) {
@@ -75,6 +77,8 @@ app.use(session(loginSession));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+app.set('trust proxy', true);
 
 async function execute<
   T,
